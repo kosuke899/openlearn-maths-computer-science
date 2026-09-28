@@ -133,6 +133,143 @@ section[data-testid="stSidebar"] {
     font-weight: 600;
 }
 
+.stApp {
+    background: #ffffff;
+    color: #202123;
+}
+
+.main .block-container {
+    max-width: 860px;
+    padding-top: 1.25rem;
+    padding-bottom: 7rem;
+}
+
+section[data-testid="stSidebar"] {
+    background: #f7f7f5;
+    border-right: 1px solid #ececea;
+}
+
+[data-testid="stChatMessage"] {
+    border: 0;
+    background: transparent;
+    padding: 0.65rem 0;
+}
+
+[data-testid="stChatInput"] {
+    border-radius: 1.5rem;
+}
+
+.tutor-intro {
+    min-height: 45vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+}
+
+.tutor-intro h1 {
+    font-size: 2rem;
+    font-weight: 600;
+    margin: 0 0 0.5rem;
+}
+
+.tutor-signin-prompt {
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin: 0 0 0.4rem;
+}
+
+.tutor-intro p {
+    color: #6b6b66;
+    margin: 0;
+}
+
+.tutor-footer {
+    color: #85857f;
+    font-size: 0.78rem;
+    text-align: center;
+    padding: 1.5rem 0 0;
+}
+
+:root {
+    color-scheme: light;
+    --text-primary: #111827;
+    --text-secondary: #404854;
+    --surface: #ffffff;
+    --surface-muted: #f1f3f5;
+    --border-strong: #707782;
+    --link: #0645ad;
+}
+
+body, .stApp, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
+    background: var(--surface);
+    color: var(--text-primary);
+}
+
+section[data-testid="stSidebar"] {
+    background: var(--surface-muted);
+    border-right: 1px solid var(--border-strong);
+    color: var(--text-primary);
+}
+
+.stApp p, .stApp li, .stApp label,
+[data-testid="stMarkdownContainer"],
+[data-testid="stWidgetLabel"] {
+    color: var(--text-primary);
+}
+
+[data-testid="stCaptionContainer"] {
+    color: var(--text-secondary) !important;
+}
+
+.stApp a {
+    color: var(--link);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.stApp a:hover {
+    color: #003477;
+}
+
+input, textarea, select,
+[data-testid="stChatInput"] textarea {
+    background: var(--surface) !important;
+    color: var(--text-primary) !important;
+    border-color: var(--border-strong) !important;
+    accent-color: var(--link);
+}
+
+input::placeholder, textarea::placeholder {
+    color: var(--text-secondary) !important;
+    opacity: 1;
+}
+
+.stButton > button, .stLinkButton > a {
+    background: var(--surface) !important;
+    color: var(--text-primary) !important;
+    border: 1px solid var(--border-strong) !important;
+}
+
+.stButton > button:hover, .stLinkButton > a:hover {
+    background: #e5e7eb !important;
+    color: #111827 !important;
+}
+
+[data-testid="stAlert"], [data-testid="stAlert"] p {
+    color: var(--text-primary) !important;
+}
+
+.badge {
+    background: #e8edf2;
+    color: #253142;
+}
+
+.footer, .tutor-footer, .tutor-intro p {
+    color: var(--text-secondary) !important;
+}
+
 /* Mobile */
 
 @media (max-width: 700px) {
@@ -653,6 +790,44 @@ def challenge_for(lesson, day):
     return "Create your own example of this mathematical idea and explain every step of your reasoning."
 
 
+def tutor_reply(question, day):
+    question_text = question.casefold()
+    phase, lesson = get_day(day)
+
+    for lesson_phase in all_phases:
+        matched_lesson = next(
+            (item for item in lesson_phase["lessons"] if item.casefold() in question_text),
+            None
+        )
+        if matched_lesson:
+            lesson = matched_lesson
+            day = lesson_phase["start"] + lesson_phase["lessons"].index(matched_lesson)
+            phase = lesson_phase
+            break
+
+    if any(word in question_text for word in ("quiz", "test me", "challenge", "practice")):
+        return (
+            f"Let's try a quick check on **{lesson}**.\n\n"
+            f"{challenge_for(lesson, day)}\n\n"
+            "Show me your working and I'll help you check it."
+        )
+
+    explanation = lesson_explanation(day, phase, lesson)
+    if "example" in question_text:
+        return (
+            f"Let's use **{lesson}** as an example.\n\n"
+            f"{explanation}\n\n"
+            f"Try this: {challenge_for(lesson, day)}"
+        )
+
+    return (
+        f"Let's work through **{lesson}** step by step.\n\n"
+        f"{explanation}\n\n"
+        f"A good next step: {challenge_for(lesson, day)}\n\n"
+        "What part would you like to unpack together?"
+    )
+
+
 # ============================================================
 # SESSION STATE
 # ============================================================
@@ -663,26 +838,56 @@ if "completed" not in st.session_state:
 if "selected_day" not in st.session_state:
     st.session_state.selected_day = 1
 
+if "tutor_messages" not in st.session_state:
+    st.session_state.tutor_messages = []
+
 
 # ============================================================
 # SIDEBAR
 # ============================================================
 
-st.sidebar.markdown("# 📚 OpenLearn")
+st.sidebar.markdown("# StudyGPT")
 
-st.sidebar.caption("Free Maths & Computer Science education")
+st.sidebar.caption("A Foundation Program learning space")
+
+if st.sidebar.button("＋  New chat", use_container_width=True):
+    st.session_state.tutor_messages = []
 
 page = st.sidebar.radio(
     "Explore",
     [
-        "Home",
+        "StudyGPT",
         "Learn",
         "Roadmap",
-        "Shops",
         "Progress",
         "About"
     ]
 )
+
+st.sidebar.divider()
+
+st.sidebar.markdown("### Lesson context")
+tutor_day = st.sidebar.selectbox(
+    "Choose a lesson",
+    range(1, 201),
+    index=st.session_state.selected_day - 1,
+    format_func=lambda day: f"Day {day}: {get_day(day)[1]}",
+    label_visibility="collapsed"
+)
+st.session_state.selected_day = tutor_day
+
+st.sidebar.markdown("### Sign in")
+st.sidebar.caption("Continue with your Foundation Program account.")
+st.sidebar.link_button(
+    "Sign in with Foundation Program ↗",
+    "https://foundationprogram-logic.streamlit.app/",
+    use_container_width=True
+)
+st.sidebar.markdown(
+    "You can go to the other website with this link: "
+    "[Foundation Program](https://foundationprogram-logic.streamlit.app/)."
+)
+st.sidebar.caption("Sign-in is handled on the Foundation Program website.")
 
 st.sidebar.divider()
 
@@ -701,99 +906,49 @@ st.sidebar.write(
 # HOME
 # ============================================================
 
-if page == "Home":
+if page == "StudyGPT":
+    phase, lesson = get_day(tutor_day)
+    st.markdown(f"**StudyGPT**　<span style='color:#404854'>Day {tutor_day} · {phase['topic']}</span>", unsafe_allow_html=True)
 
-    st.markdown("""
-    <div class="hero">
-
-    <span class="badge">100% FREE EDUCATION</span>
-
-    <h1>Learn. Build. Think.</h1>
-
-    <p>
-    A free learning platform for anyone who wants to learn
-    Computer Science and Mathematics — regardless of their
-    financial situation.
-    </p>
-
-    </div>
-    """, unsafe_allow_html=True)
-
-    st.markdown("## Start learning")
-
-    col1, col2 = st.columns(2)
-
-    with col1:
+    if not st.session_state.tutor_messages:
         st.markdown("""
-        <div class="card">
-
-        <h3>💻 Computer Science</h3>
-
-        <p>
-        Start from the absolute beginning and gradually learn
-        programming, algorithms, data structures, computers,
-        networks, databases, cybersecurity, AI and more.
-        </p>
-
-        <strong>Days 1–100</strong>
-
+        <div class="tutor-intro">
+            <div>
+                <h1>What would you like to learn?</h1>
+                <p class="tutor-signin-prompt">Sign in for better experience</p>
+                <p>Ask a question, explore an idea, or practise a lesson.</p>
+            </div>
         </div>
         """, unsafe_allow_html=True)
+        suggestions = st.columns(3)
+        prompts = ["Explain this lesson", "Give me an example", "Quiz me"]
+        for column, prompt in zip(suggestions, prompts):
+            with column:
+                if st.button(prompt, use_container_width=True):
+                    st.session_state.tutor_messages.append({"role": "user", "content": prompt})
+                    st.session_state.tutor_messages.append({
+                        "role": "assistant",
+                        "content": tutor_reply(prompt, tutor_day)
+                    })
+                    st.rerun()
 
-        if st.button("Start Computer Science", use_container_width=True):
-            st.session_state.selected_day = 1
-            st.rerun()
+    for message in st.session_state.tutor_messages:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
 
-    with col2:
-        st.markdown("""
-        <div class="card">
+    question = st.chat_input("Message StudyGPT")
+    if question:
+        st.session_state.tutor_messages.append({"role": "user", "content": question})
+        st.session_state.tutor_messages.append({
+            "role": "assistant",
+            "content": tutor_reply(question, tutor_day)
+        })
+        st.rerun()
 
-        <h3>📐 Mathematics</h3>
-
-        <p>
-        Build your mathematical foundations and gradually move
-        into algebra, geometry, probability, proof, calculus
-        foundations and challenging problem solving.
-        </p>
-
-        <strong>Days 101–200</strong>
-
-        </div>
-        """, unsafe_allow_html=True)
-
-        if st.button("Start Mathematics", use_container_width=True):
-            st.session_state.selected_day = 101
-            st.rerun()
-
-    st.markdown("---")
-
-    st.markdown("## Why OpenLearn?")
-
-    c1, c2, c3 = st.columns(3)
-
-    with c1:
-        st.markdown("""
-        ### 🌍 Free
-
-        Learning should not depend on how much money
-        someone's family has.
-        """)
-
-    with c2:
-        st.markdown("""
-        ### 🧠 Beginner-friendly
-
-        You don't need to already be an expert.
-        Start at the beginning and build your knowledge.
-        """)
-
-    with c3:
-        st.markdown("""
-        ### 🛠️ Practical
-
-        Don't just memorise information.
-        Use what you learn to solve problems and build things.
-        """)
+    st.markdown(
+        "<div class='tutor-footer'>Made by Kosuke M · Part of the Foundation Program</div>",
+        unsafe_allow_html=True
+    )
 
 
 # ============================================================
